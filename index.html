@@ -1,0 +1,2883 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão Escolar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        const firebaseConfig = {
+            apiKey: "demo-key",
+            authDomain: "demo-project.firebaseapp.com",
+            databaseURL: "https://demo-project-default-rtdb.firebaseio.com",
+            projectId: "demo-project",
+            storageBucket: "demo-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "demo-app-id"
+        };
+        
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        // Disponibilizar globalmente
+        window.firebaseDB = database;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseGet = get;
+        window.firebaseOnValue = onValue;
+        window.firebasePush = push;
+        window.firebaseRemove = remove;
+        
+        console.log('Firebase inicializado com sucesso!');
+    </script>
+</head>
+<body class="bg-gray-900 font-sans">
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-white mb-2">Sistema Escolar</h1>
+                <p class="text-gray-300">Faça login para continuar</p>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Tipo de Usuário</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="selectUserType('aluno')" id="alunoBtn" class="p-3 border-2 border-gray-600 rounded-lg hover:border-blue-500 hover:bg-blue-900 transition-all bg-gray-700">
+                        <i class="fas fa-user-graduate text-2xl text-blue-400 mb-2"></i>
+                        <div class="text-sm font-medium text-white">Aluno</div>
+                    </button>
+                    <button onclick="selectUserType('admin')" id="adminBtn" class="p-3 border-2 border-gray-600 rounded-lg hover:border-purple-500 hover:bg-purple-900 transition-all bg-gray-700">
+                        <i class="fas fa-user-shield text-2xl text-purple-400 mb-2"></i>
+                        <div class="text-sm font-medium text-white">Administração</div>
+                    </button>
+                </div>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Usuário</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-700 text-white placeholder-gray-400" placeholder="Digite seu usuário" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
+                    <input type="password" id="password" class="w-full px-4 py-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-700 text-white placeholder-gray-400" placeholder="Digite sua senha" required>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
+                    Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Admin -->
+    <div id="adminDashboard" class="hidden min-h-screen bg-gray-900">
+        <!-- Sidebar -->
+        <div class="fixed left-0 top-0 h-full w-64 bg-gray-800 shadow-lg z-10 border-r border-gray-700">
+            <div class="p-6 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white">Painel Admin</h2>
+                <p class="text-sm text-gray-300" id="adminName">Gestão Escolar</p>
+                
+                <!-- Indicador de Sincronização -->
+                <div class="mt-3 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <div id="syncIndicator" class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span id="syncStatus" class="text-xs text-gray-400">Offline</span>
+                    </div>
+                    <button onclick="toggleSync()" id="syncToggle" class="text-xs text-blue-400 hover:text-blue-300">
+                        Ativar Sync
+                    </button>
+                </div>
+                
+                <!-- Toggle de Tema -->
+                <div class="mt-3 flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Tema Dark</span>
+                    <div class="relative">
+                        <div id="themeToggle" class="w-12 h-6 bg-blue-600 rounded-full p-1 cursor-pointer transition-colors" onclick="toggleTheme()">
+                            <div id="themeToggleButton" class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform translate-x-6"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <nav class="mt-6">
+                <a href="#" onclick="showSection('dashboard')" class="nav-item active flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-home mr-3"></i> Dashboard
+                </a>
+                <a href="#" onclick="showSection('escolas')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-school mr-3"></i> Escolas
+                </a>
+                <a href="#" onclick="showSection('turmas')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-users-class mr-3"></i> Turmas
+                </a>
+                <a href="#" onclick="showSection('alunos')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-users mr-3"></i> Alunos
+                </a>
+                <a href="#" onclick="showSection('atividades')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-tasks mr-3"></i> Atividades
+                </a>
+                <a href="#" onclick="showSection('vendas')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-shopping-cart mr-3"></i> Vendas
+                </a>
+                <a href="#" onclick="showSection('gestaoVendas')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-chart-line mr-3"></i> Gestão de Vendas
+                </a>
+                <a href="#" onclick="showSection('progressoAtividades')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-percentage mr-3"></i> Progresso Atividades
+                </a>
+                <a href="#" onclick="showSection('acessos')" class="nav-item flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-eye mr-3"></i> Controle de Acessos
+                </a>
+                <a href="#" onclick="showSection('adminManagement')" id="adminManagementLink" class="nav-item hidden flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors">
+                    <i class="fas fa-user-shield mr-3"></i> Gestão de Admins
+                </a>
+                <a href="#" onclick="logout()" class="nav-item flex items-center px-6 py-3 text-red-400 hover:bg-red-900 transition-colors mt-4">
+                    <i class="fas fa-sign-out-alt mr-3"></i> Sair
+                </a>
+            </nav>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div class="ml-64 p-6">
+            <!-- Dashboard Section -->
+            <div id="dashboardSection" class="section">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+                    <p class="text-gray-300">Visão geral do sistema</p>
+                </div>
+
+                <!-- Cards de Estatísticas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-lg shadow-lg border border-blue-500 transform hover:scale-105 transition-all duration-300 cursor-pointer" onclick="animateCard(this)">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-blue-100">Total de Alunos</p>
+                                <p class="text-2xl font-bold text-white" id="totalAlunos">0</p>
+                            </div>
+                            <i class="fas fa-users text-3xl text-blue-200"></i>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-600 to-green-700 p-6 rounded-lg shadow-lg border border-green-500 transform hover:scale-105 transition-all duration-300 cursor-pointer" onclick="animateCard(this)">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-green-100">Escolas</p>
+                                <p class="text-2xl font-bold text-white" id="totalEscolas">0</p>
+                            </div>
+                            <i class="fas fa-school text-3xl text-green-200"></i>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-600 to-purple-700 p-6 rounded-lg shadow-lg border border-purple-500 transform hover:scale-105 transition-all duration-300 cursor-pointer" onclick="animateCard(this)">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-purple-100">Turmas Ativas</p>
+                                <p class="text-2xl font-bold text-white" id="totalTurmas">0</p>
+                            </div>
+                            <i class="fas fa-door-open text-3xl text-purple-200"></i>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-orange-600 to-orange-700 p-6 rounded-lg shadow-lg border border-orange-500 transform hover:scale-105 transition-all duration-300 cursor-pointer" onclick="animateCard(this)">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-orange-100">Vendas Ativas</p>
+                                <p class="text-2xl font-bold text-white" id="totalVendas">0</p>
+                            </div>
+                            <i class="fas fa-shopping-cart text-3xl text-orange-200"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700">
+                        <h3 class="text-sm font-semibold mb-3 text-white">Alunos por Escola</h3>
+                        <div class="h-32">
+                            <canvas id="alunosChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700">
+                        <h3 class="text-sm font-semibold mb-3 text-white">Turmas por Escola</h3>
+                        <div class="h-32">
+                            <canvas id="turmasChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700">
+                        <h3 class="text-sm font-semibold mb-3 text-white">Status das Vendas</h3>
+                        <div class="h-32">
+                            <canvas id="vendasChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700">
+                        <h3 class="text-sm font-semibold mb-3 text-white">Atividades Mais Vendidas</h3>
+                        <div class="h-32">
+                            <canvas id="atividadesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Escolas Section -->
+            <div id="escolasSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestão de Escolas</h1>
+                    <button onclick="openEscolaModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Nova Escola
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border">
+                    <div class="p-6">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="text-left py-3">Nome da Escola</th>
+                                    <th class="text-left py-3">Cidade</th>
+                                    <th class="text-left py-3">UF</th>
+                                    <th class="text-left py-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="escolasTable">
+                                <!-- Escolas serão inseridas aqui -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Turmas Section -->
+            <div id="turmasSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestão de Turmas</h1>
+                    <button onclick="openTurmaModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Nova Turma
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border">
+                    <div class="p-6">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="text-left py-3">Nome da Turma</th>
+                                    <th class="text-left py-3">Escola</th>
+                                    <th class="text-left py-3">Alunos</th>
+                                    <th class="text-left py-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="turmasTable">
+                                <!-- Turmas serão inseridas aqui -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alunos Section -->
+            <div id="alunosSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestão de Alunos</h1>
+                    <button onclick="openAlunoModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Novo Aluno
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border">
+                    <div class="p-6">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="text-left py-3">Código</th>
+                                    <th class="text-left py-3">Nome</th>
+                                    <th class="text-left py-3">RA</th>
+                                    <th class="text-left py-3">Telefone</th>
+                                    <th class="text-left py-3">Escola</th>
+                                    <th class="text-left py-3">Turma</th>
+                                    <th class="text-left py-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alunosTable">
+                                <!-- Alunos serão inseridos aqui -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Atividades Section -->
+            <div id="atividadesSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestão de Atividades</h1>
+                    <button onclick="openAtividadeModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Nova Atividade
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border">
+                    <div class="p-6">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="text-left py-3">Nome da Atividade</th>
+                                    <th class="text-left py-3">Valor</th>
+                                    <th class="text-left py-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="atividadesTable">
+                                <!-- Atividades serão inseridas aqui -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendas Section -->
+            <div id="vendasSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Nova Venda</h1>
+                    <p class="text-gray-600">Registre uma nova venda com múltiplas atividades</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm border max-w-4xl">
+                    <form onsubmit="criarVenda(event)" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Código do Aluno</label>
+                                <input type="text" id="codigoAluno" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ex: 001" onchange="buscarAlunoPorCodigo()" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Aluno Selecionado</label>
+                                <input type="text" id="alunoSelecionado" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50" readonly placeholder="Nenhum aluno selecionado">
+                            </div>
+                        </div>
+
+                        <div id="dadosAluno" class="hidden bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-medium text-blue-800 mb-2">Dados do Aluno</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                <div><strong>Escola:</strong> <span id="alunoEscola">-</span></div>
+                                <div><strong>Turma:</strong> <span id="alunoTurma">-</span></div>
+                                <div><strong>Telefone:</strong> <span id="alunoTelefone">-</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Seção de Atividades -->
+                        <div id="atividadesVenda" class="hidden">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="text-lg font-semibold text-gray-800">Atividades da Venda</h4>
+                                <button type="button" onclick="adicionarAtividade()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>Adicionar Atividade
+                                </button>
+                            </div>
+                            
+                            <div id="listaAtividades" class="space-y-3 mb-4">
+                                <!-- Atividades serão inseridas aqui -->
+                            </div>
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="flex justify-between items-center text-lg font-bold">
+                                    <span>Valor Total:</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span>R$</span>
+                                        <input type="number" id="valorTotal" class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right font-bold text-lg" step="0.01" min="0" onchange="validarValorTotal()">
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">Você pode ajustar o valor total da venda</p>
+                            </div>
+                        </div>
+
+                        <div id="dadosVenda" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                                <select id="formaPagamento" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
+                                    <option value="">Selecione</option>
+                                    <option value="À vista">À vista</option>
+                                    <option value="2x">Em até 2x</option>
+                                    <option value="3x">Em até 3x</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Provável de Pagamento</label>
+                                <input type="date" id="dataPagamento" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
+                            </div>
+                        </div>
+
+                        <div id="observacoesVenda" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                            <textarea id="observacoes" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows="3" placeholder="Observações sobre a venda..."></textarea>
+                        </div>
+
+                        <button type="submit" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400" id="btnCriarVenda" disabled>
+                            <i class="fas fa-plus mr-2"></i>Criar Venda
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Gestão de Vendas Section -->
+            <div id="gestaoVendasSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestão Total de Vendas</h1>
+                    <p class="text-gray-600">Gerencie o progresso das atividades vendidas</p>
+                </div>
+
+                <div class="bg-gray-900 rounded-lg shadow-lg border border-gray-700">
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-white">
+                                <thead>
+                                    <tr class="border-b border-gray-700">
+                                        <th class="text-left py-4 text-gray-300">Código</th>
+                                        <th class="text-left py-4 text-gray-300">Aluno</th>
+                                        <th class="text-left py-4 text-gray-300">Atividades</th>
+                                        <th class="text-left py-4 text-gray-300">Valor</th>
+                                        <th class="text-left py-4 text-gray-300">Pagamento</th>
+                                        <th class="text-left py-4 text-gray-300">Data Pag.</th>
+                                        <th class="text-left py-4 text-gray-300">Progresso</th>
+                                        <th class="text-left py-4 text-gray-300">Status</th>
+                                        <th class="text-left py-4 text-gray-300">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gestaoVendasTable">
+                                    <!-- Vendas serão inseridas aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progresso das Atividades Section -->
+            <div id="progressoAtividadesSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-white">Progresso das Atividades</h1>
+                    <p class="text-gray-300">Gerencie o progresso percentual das atividades dos alunos</p>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-white">
+                                <thead>
+                                    <tr class="border-b border-gray-700">
+                                        <th class="text-left py-4 text-gray-300">Aluno</th>
+                                        <th class="text-left py-4 text-gray-300">Atividade</th>
+                                        <th class="text-left py-4 text-gray-300">Status</th>
+                                        <th class="text-left py-4 text-gray-300">Progresso</th>
+                                        <th class="text-left py-4 text-gray-300">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="progressoTable">
+                                    <!-- Progresso será inserido aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controle de Acessos Section -->
+            <div id="acessosSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-white">Controle de Acessos</h1>
+                    <p class="text-gray-300">Visualize os acessos dos alunos ao sistema</p>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-white">
+                                <thead>
+                                    <tr class="border-b border-gray-700">
+                                        <th class="text-left py-3 text-gray-300">Código</th>
+                                        <th class="text-left py-3 text-gray-300">Nome do Aluno</th>
+                                        <th class="text-left py-3 text-gray-300">RA</th>
+                                        <th class="text-left py-3 text-gray-300">Data/Hora do Acesso</th>
+                                        <th class="text-left py-3 text-gray-300">IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="acessosTable">
+                                    <!-- Acessos serão inseridos aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gestão de Admins Section -->
+            <div id="adminManagementSection" class="section hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestão de Administradores</h1>
+                    <p class="text-gray-600">Gerencie administradores do sistema (Acesso exclusivo do Admin Principal)</p>
+                    <button onclick="openAdminModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors mt-4">
+                        <i class="fas fa-plus mr-2"></i>Novo Administrador
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Lista de Administradores -->
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+                        <div class="p-6 border-b border-gray-700">
+                            <h3 class="text-xl font-bold text-white flex items-center">
+                                <i class="fas fa-users-cog text-purple-500 mr-3"></i>
+                                Administradores Cadastrados
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="adminsList" class="space-y-4">
+                                <!-- Lista de admins será inserida aqui -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs de Acesso dos Admins -->
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+                        <div class="p-6 border-b border-gray-700">
+                            <h3 class="text-xl font-bold text-white flex items-center">
+                                <i class="fas fa-history text-blue-500 mr-3"></i>
+                                Logs de Acesso
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="adminLogs" class="space-y-3 max-h-96 overflow-y-auto">
+                                <!-- Logs serão inseridos aqui -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Aluno -->
+    <div id="alunoDashboard" class="hidden min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+        <div class="p-6">
+            <div class="max-w-6xl mx-auto">
+                <!-- Header do Aluno -->
+                <div class="bg-gradient-to-r from-gray-800 to-gray-900 p-6 rounded-lg shadow-xl border border-gray-700 mb-6">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user-graduate text-2xl text-white"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-2xl font-bold text-white" id="alunoNome">Bem-vindo!</h1>
+                                <p class="text-gray-300" id="alunoInfo">Carregando informações...</p>
+                                <p class="text-sm text-gray-400" id="alunoDetalhes">Código: --- | Telefone: ---</p>
+                            </div>
+                        </div>
+                        <button onclick="logout()" class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all transform hover:scale-105 shadow-lg">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Estatísticas do Aluno -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-lg shadow-xl">
+                        <div class="flex items-center justify-between text-white">
+                            <div>
+                                <p class="text-blue-100">Atividades Ativas</p>
+                                <p class="text-3xl font-bold" id="alunoAtividadesAtivas">0</p>
+                            </div>
+                            <i class="fas fa-tasks text-4xl text-blue-200"></i>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-600 to-green-700 p-6 rounded-lg shadow-xl">
+                        <div class="flex items-center justify-between text-white">
+                            <div>
+                                <p class="text-green-100">Concluídas</p>
+                                <p class="text-3xl font-bold" id="alunoAtividadesConcluidas">0</p>
+                            </div>
+                            <i class="fas fa-check-circle text-4xl text-green-200"></i>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-600 to-purple-700 p-6 rounded-lg shadow-xl">
+                        <div class="flex items-center justify-between text-white">
+                            <div>
+                                <p class="text-purple-100">Total Investido</p>
+                                <p class="text-3xl font-bold" id="alunoTotalInvestido">R$ 0,00</p>
+                            </div>
+                            <i class="fas fa-dollar-sign text-4xl text-purple-200"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Atividades do Aluno -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Atividades em Progresso -->
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+                        <div class="p-6 border-b border-gray-700">
+                            <h3 class="text-xl font-bold text-white flex items-center">
+                                <i class="fas fa-clock text-yellow-500 mr-3"></i>
+                                Atividades em Progresso
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="atividadesAluno" class="space-y-4">
+                                <!-- Atividades do aluno serão inseridas aqui -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Atividades Concluídas -->
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+                        <div class="p-6 border-b border-gray-700">
+                            <h3 class="text-xl font-bold text-white flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                Atividades Concluídas
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="atividadesConcluidas" class="space-y-4">
+                                <!-- Atividades concluídas serão inseridas aqui -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Histórico Detalhado -->
+                <div class="mt-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+                    <div class="p-6 border-b border-gray-700">
+                        <h3 class="text-xl font-bold text-white flex items-center">
+                            <i class="fas fa-history text-blue-500 mr-3"></i>
+                            Histórico Completo
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-white">
+                                <thead>
+                                    <tr class="border-b border-gray-700">
+                                        <th class="text-left py-3 text-gray-300">Atividade</th>
+                                        <th class="text-left py-3 text-gray-300">Valor</th>
+                                        <th class="text-left py-3 text-gray-300">Pagamento</th>
+                                        <th class="text-left py-3 text-gray-300">Data Pag.</th>
+                                        <th class="text-left py-3 text-gray-300">Status</th>
+                                        <th class="text-left py-3 text-gray-300">Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historicoAluno">
+                                    <!-- Histórico será inserido aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais -->
+    <!-- Modal Escola -->
+    <div id="escolaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="escolaModalTitle">Nova Escola</h3>
+            <form onsubmit="salvarEscola(event)" class="space-y-4">
+                <input type="hidden" id="escolaId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Escola</label>
+                    <input type="text" id="nomeEscola" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                    <input type="text" id="cidadeEscola" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">UF</label>
+                    <input type="text" id="ufEscola" class="w-full px-4 py-2 border border-gray-300 rounded-lg" maxlength="2" minlength="2" required>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Salvar</button>
+                    <button type="button" onclick="closeModal('escolaModal')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Turma -->
+    <div id="turmaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="turmaModalTitle">Nova Turma</h3>
+            <form onsubmit="salvarTurma(event)" class="space-y-4">
+                <input type="hidden" id="turmaId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Escola</label>
+                    <select id="escolaTurma" class="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                        <option value="">Selecione uma escola</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Turma</label>
+                    <input type="text" id="nomeTurma" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Salvar</button>
+                    <button type="button" onclick="closeModal('turmaModal')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Aluno -->
+    <div id="alunoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="alunoModalTitle">Novo Aluno</h3>
+            <form onsubmit="salvarAluno(event)" class="space-y-4">
+                <input type="hidden" id="alunoId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Aluno</label>
+                    <input type="text" id="nomeAluno" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">RA</label>
+                    <input type="text" id="raAluno" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <input type="tel" id="telefoneAluno" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="(11) 99999-9999" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <input type="password" id="senhaAluno" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Escola</label>
+                    <select id="escolaAluno" class="w-full px-4 py-2 border border-gray-300 rounded-lg" onchange="carregarTurmasAluno()" required>
+                        <option value="">Selecione uma escola</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Turma</label>
+                    <select id="turmaAluno" class="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                        <option value="">Selecione uma turma</option>
+                    </select>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Salvar</button>
+                    <button type="button" onclick="closeModal('alunoModal')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Atividade -->
+    <div id="atividadeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="atividadeModalTitle">Nova Atividade</h3>
+            <form onsubmit="salvarAtividade(event)" class="space-y-4">
+                <input type="hidden" id="atividadeId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Atividade</label>
+                    <input type="text" id="nomeAtividade" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                    <input type="number" id="valorAtividade" class="w-full px-4 py-2 border border-gray-300 rounded-lg" min="0" step="0.01" required>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Salvar</button>
+                    <button type="button" onclick="closeModal('atividadeModal')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes da Venda -->
+    <div id="detalhesVendaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-2xl">
+            <h3 class="text-lg font-semibold mb-4">Detalhes da Venda</h3>
+            <div id="detalhesVendaContent" class="space-y-4">
+                <!-- Conteúdo será inserido dinamicamente -->
+            </div>
+            <div class="flex justify-end mt-6">
+                <button onclick="closeModal('detalhesVendaModal')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Admin -->
+    <div id="adminModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4" id="adminModalTitle">Novo Administrador</h3>
+            <form onsubmit="salvarAdmin(event)" class="space-y-4">
+                <input type="hidden" id="adminId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                    <input type="text" id="nomeAdmin" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome de Usuário</label>
+                    <input type="text" id="usernameAdmin" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <input type="password" id="senhaAdmin" class="w-full px-4 py-2 border border-gray-300 rounded-lg" minlength="3" required>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">Salvar</button>
+                    <button type="button" onclick="closeModal('adminModal')" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Sistema de armazenamento em nuvem com Firebase
+        const STORAGE_KEY = 'sistemaEscolar_';
+        let isFirebaseReady = false;
+        let syncEnabled = true;
+        
+        // Dados do sistema
+        let escolas = [];
+        let turmas = [];
+        let alunos = [];
+        let atividades = [];
+        let vendas = [];
+        let acessos = [];
+        let selectedUserType = '';
+        let currentUser = null;
+        let proximoCodigo = 1;
+        let progressoAtividades = {};
+        
+        // Status de sincronização
+        let lastSyncTime = null;
+        let syncStatus = 'offline';
+
+        // Funções de animação e interatividade
+        function animateCard(element) {
+            element.classList.add('animate-pulse');
+            setTimeout(() => {
+                element.classList.remove('animate-pulse');
+            }, 500);
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 ${
+                type === 'success' ? 'bg-green-600' : 
+                type === 'error' ? 'bg-red-600' : 
+                'bg-blue-600'
+            } text-white`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        function typeWriter(element, text, speed = 50) {
+            let i = 0;
+            element.innerHTML = '';
+            function type() {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+
+        function countUp(element, target, duration = 1000) {
+            const start = 0;
+            const increment = target / (duration / 16);
+            let current = start;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                element.textContent = Math.floor(current);
+            }, 16);
+        }
+
+        function addSparkleEffect(element) {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'absolute inset-0 pointer-events-none';
+            sparkle.innerHTML = '✨';
+            sparkle.style.animation = 'sparkle 1s ease-out forwards';
+            element.style.position = 'relative';
+            element.appendChild(sparkle);
+            
+            setTimeout(() => {
+                element.removeChild(sparkle);
+            }, 1000);
+        }
+
+        // Funções de sincronização com Firebase
+        async function salvarDados() {
+            try {
+                // Salvar localmente primeiro (backup)
+                const dados = {
+                    escolas,
+                    turmas,
+                    alunos,
+                    atividades,
+                    vendas,
+                    acessos,
+                    proximoCodigo,
+                    progressoAtividades,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const dadosString = JSON.stringify(dados);
+                const dadosCriptografados = btoa(dadosString);
+                localStorage.setItem(STORAGE_KEY + 'dados', dadosCriptografados);
+                
+                // Sincronizar com Firebase se disponível
+                if (isFirebaseReady && syncEnabled && window.firebaseDB) {
+                    await window.firebaseSet(window.firebaseRef(window.firebaseDB, 'sistemaEscolar'), dados);
+                    updateSyncStatus('online', 'Sincronizado');
+                    lastSyncTime = new Date();
+                    console.log('Dados sincronizados com Firebase!');
+                } else {
+                    console.log('Dados salvos localmente (Firebase indisponível)');
+                }
+            } catch (error) {
+                console.error('Erro ao salvar dados:', error);
+                updateSyncStatus('error', 'Erro na sincronização');
+                // Fallback para localStorage
+                try {
+                    localStorage.setItem(STORAGE_KEY + 'backup', dadosCriptografados);
+                } catch (localError) {
+                    alert('Erro crítico ao salvar dados!');
+                }
+            }
+        }
+
+        async function carregarDados() {
+            try {
+                // Tentar carregar do Firebase primeiro
+                if (isFirebaseReady && window.firebaseDB) {
+                    const snapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'sistemaEscolar'));
+                    
+                    if (snapshot.exists()) {
+                        const dados = snapshot.val();
+                        
+                        escolas = dados.escolas || [];
+                        turmas = dados.turmas || [];
+                        alunos = dados.alunos || [];
+                        atividades = dados.atividades || [];
+                        vendas = dados.vendas || [];
+                        acessos = dados.acessos || [];
+                        proximoCodigo = dados.proximoCodigo || 1;
+                        progressoAtividades = dados.progressoAtividades || {};
+                        
+                        updateSyncStatus('online', 'Sincronizado');
+                        console.log('Dados carregados do Firebase!');
+                        console.log(`Última atualização: ${dados.timestamp}`);
+                        return;
+                    }
+                }
+                
+                // Fallback para localStorage
+                const dadosCriptografados = localStorage.getItem(STORAGE_KEY + 'dados') || 
+                                          localStorage.getItem(STORAGE_KEY + 'backup');
+                
+                if (dadosCriptografados) {
+                    const dadosString = atob(dadosCriptografados);
+                    const dados = JSON.parse(dadosString);
+                    
+                    escolas = dados.escolas || [];
+                    turmas = dados.turmas || [];
+                    alunos = dados.alunos || [];
+                    atividades = dados.atividades || [];
+                    vendas = dados.vendas || [];
+                    acessos = dados.acessos || [];
+                    proximoCodigo = dados.proximoCodigo || 1;
+                    progressoAtividades = dados.progressoAtividades || {};
+                    
+                    updateSyncStatus('offline', 'Dados locais');
+                    console.log('Dados carregados do localStorage');
+                } else {
+                    console.log('Criando dados de exemplo...');
+                    criarDadosExemplo();
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                updateSyncStatus('error', 'Erro ao carregar');
+                criarDadosExemplo();
+            }
+        }
+
+        function setupRealtimeSync() {
+            if (isFirebaseReady && syncEnabled && window.firebaseDB) {
+                // Escutar mudanças em tempo real
+                window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'sistemaEscolar'), (snapshot) => {
+                    if (snapshot.exists()) {
+                        const dados = snapshot.val();
+                        
+                        // Verificar se os dados são diferentes dos locais
+                        if (dados.timestamp !== lastSyncTime?.toISOString()) {
+                            escolas = dados.escolas || [];
+                            turmas = dados.turmas || [];
+                            alunos = dados.alunos || [];
+                            atividades = dados.atividades || [];
+                            vendas = dados.vendas || [];
+                            acessos = dados.acessos || [];
+                            proximoCodigo = dados.proximoCodigo || 1;
+                            progressoAtividades = dados.progressoAtividades || {};
+                            
+                            // Atualizar interface
+                            atualizarTodasTabelas();
+                            atualizarDashboard();
+                            
+                            updateSyncStatus('online', 'Atualizado');
+                            showNotification('Dados atualizados em tempo real! 🔄', 'info');
+                            
+                            console.log('Dados sincronizados em tempo real!');
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateSyncStatus(status, message) {
+            syncStatus = status;
+            const indicator = document.getElementById('syncIndicator');
+            const statusText = document.getElementById('syncStatus');
+            const toggleBtn = document.getElementById('syncToggle');
+            
+            if (indicator && statusText) {
+                switch (status) {
+                    case 'online':
+                        indicator.className = 'w-3 h-3 rounded-full bg-green-500';
+                        statusText.textContent = message || 'Online';
+                        if (toggleBtn) toggleBtn.textContent = 'Desativar Sync';
+                        break;
+                    case 'offline':
+                        indicator.className = 'w-3 h-3 rounded-full bg-yellow-500';
+                        statusText.textContent = message || 'Offline';
+                        if (toggleBtn) toggleBtn.textContent = 'Ativar Sync';
+                        break;
+                    case 'error':
+                        indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+                        statusText.textContent = message || 'Erro';
+                        if (toggleBtn) toggleBtn.textContent = 'Tentar Sync';
+                        break;
+                    case 'syncing':
+                        indicator.className = 'w-3 h-3 rounded-full bg-blue-500 animate-pulse';
+                        statusText.textContent = message || 'Sincronizando...';
+                        break;
+                }
+            }
+        }
+
+        function toggleSync() {
+            syncEnabled = !syncEnabled;
+            
+            if (syncEnabled) {
+                updateSyncStatus('syncing', 'Conectando...');
+                initializeFirebase();
+            } else {
+                updateSyncStatus('offline', 'Desabilitado');
+                showNotification('Sincronização desabilitada', 'info');
+            }
+        }
+
+        async function initializeFirebase() {
+            try {
+                // Aguardar Firebase estar disponível
+                let attempts = 0;
+                while (!window.firebaseDB && attempts < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    attempts++;
+                }
+                
+                if (window.firebaseDB) {
+                    isFirebaseReady = true;
+                    await carregarDados();
+                    setupRealtimeSync();
+                    showNotification('Sincronização ativada! 🌐', 'success');
+                } else {
+                    throw new Error('Firebase não disponível');
+                }
+            } catch (error) {
+                console.error('Erro ao inicializar Firebase:', error);
+                updateSyncStatus('error', 'Firebase indisponível');
+                showNotification('Erro na sincronização. Usando dados locais.', 'error');
+                
+                // Carregar dados locais como fallback
+                const dadosCriptografados = localStorage.getItem(STORAGE_KEY + 'dados');
+                if (dadosCriptografados) {
+                    try {
+                        const dados = JSON.parse(atob(dadosCriptografados));
+                        escolas = dados.escolas || [];
+                        turmas = dados.turmas || [];
+                        alunos = dados.alunos || [];
+                        atividades = dados.atividades || [];
+                        vendas = dados.vendas || [];
+                        acessos = dados.acessos || [];
+                        proximoCodigo = dados.proximoCodigo || 1;
+                        progressoAtividades = dados.progressoAtividades || {};
+                    } catch (parseError) {
+                        criarDadosExemplo();
+                    }
+                } else {
+                    criarDadosExemplo();
+                }
+            }
+        }
+
+        function criarDadosExemplo() {
+            // Criar escola de exemplo
+            const escolaExemplo = {
+                id: 1,
+                nome: 'Escola Estadual Dom Pedro II',
+                cidade: 'São Paulo',
+                uf: 'SP'
+            };
+            escolas.push(escolaExemplo);
+
+            // Criar turma de exemplo
+            const turmaExemplo = {
+                id: 1,
+                nome: '3º Ano A',
+                escolaId: 1,
+                escolaNome: 'Escola Estadual Dom Pedro II',
+                alunos: 0
+            };
+            turmas.push(turmaExemplo);
+
+            // Criar atividade de exemplo
+            const atividadeExemplo = {
+                id: 1,
+                nome: 'Formatura 2024',
+                valor: 150.00
+            };
+            atividades.push(atividadeExemplo);
+
+            // Criar aluno de exemplo
+            const alunoExemplo = {
+                id: 1,
+                codigo: '001',
+                nome: 'João Silva Santos',
+                ra: '123456',
+                telefone: '(11) 99999-9999',
+                senha: '123',
+                turmaId: 1,
+                turmaNome: '3º Ano A',
+                escolaId: 1,
+                escolaNome: 'Escola Estadual Dom Pedro II'
+            };
+            alunos.push(alunoExemplo);
+
+            proximoCodigo = 2;
+            
+            console.log('Dados de exemplo criados!');
+            autoSalvar();
+        }
+
+        // Auto-salvar a cada mudança
+        function autoSalvar() {
+            setTimeout(() => {
+                salvarDados();
+            }, 100);
+        }
+
+        // Função para atualizar todas as tabelas
+        function atualizarTodasTabelas() {
+            try {
+                atualizarTabelaEscolas();
+                atualizarTabelaTurmas();
+                atualizarTabelaAlunos();
+                atualizarTabelaAtividades();
+                atualizarTabelaGestaoVendas();
+                atualizarTabelaAcessos();
+                atualizarTabelaProgresso();
+                atualizarListaAdmins();
+                atualizarLogsAdmins();
+                updateCharts();
+            } catch (error) {
+                console.error('Erro ao atualizar tabelas:', error);
+            }
+        }
+
+        // Sistema de administradores
+        let admins = {
+            'adriano2303': { 
+                username: 'adriano2303', 
+                password: 'adriano2008', 
+                type: 'admin', 
+                name: 'Adriano',
+                isMainAdmin: true,
+                createdAt: new Date().toISOString()
+            }
+        };
+        let adminLogs = [];
+        
+        // Inicializar admin principal
+        function initializeMainAdmin() {
+            // Admin principal já está definido acima
+            console.log('Admin principal inicializado:', admins['adriano2303']);
+        }
+
+        // Funções de Login
+        function selectUserType(type) {
+            selectedUserType = type;
+            
+            document.querySelectorAll('#alunoBtn, #adminBtn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'border-purple-500', 'bg-purple-50');
+                btn.classList.add('border-gray-200');
+            });
+            
+            if (type === 'aluno') {
+                document.getElementById('alunoBtn').classList.remove('border-gray-200');
+                document.getElementById('alunoBtn').classList.add('border-blue-500', 'bg-blue-50');
+            } else {
+                document.getElementById('adminBtn').classList.remove('border-gray-200');
+                document.getElementById('adminBtn').classList.add('border-purple-500', 'bg-purple-50');
+            }
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            console.log('Tentativa de login:', { username, password, selectedUserType });
+            
+            if (!selectedUserType) {
+                alert('Por favor, selecione o tipo de usuário');
+                return;
+            }
+            
+            if (selectedUserType === 'admin') {
+                console.log('Admins disponíveis:', admins);
+                const admin = admins[username];
+                console.log('Admin encontrado:', admin);
+                
+                if (admin && admin.password === password) {
+                    currentUser = admin;
+                    document.getElementById('adminName').textContent = `Bem-vindo, ${admin.name}!`;
+                    
+                    // Registrar log de acesso do admin
+                    const log = {
+                        id: Date.now(),
+                        username: admin.username,
+                        name: admin.name,
+                        timestamp: new Date().toLocaleString('pt-BR'),
+                        ip: '192.168.1.' + Math.floor(Math.random() * 255)
+                    };
+                    adminLogs.push(log);
+                    
+                    // Mostrar/ocultar menu de gestão de admins
+                    if (admin.isMainAdmin) {
+                        document.getElementById('adminManagementLink').classList.remove('hidden');
+                    } else {
+                        document.getElementById('adminManagementLink').classList.add('hidden');
+                    }
+                    
+                    showDashboard('admin');
+                    autoSalvar();
+                } else {
+                    console.log('Login falhou - credenciais inválidas');
+                    alert('Credenciais de administrador inválidas!');
+                }
+            } else {
+                const aluno = alunos.find(a => a.ra === username && a.senha === password);
+                if (aluno) {
+                    currentUser = aluno;
+                    registrarAcesso(aluno);
+                    showDashboard('aluno');
+                } else {
+                    alert('RA ou senha inválidos!');
+                }
+            }
+        }
+
+        function registrarAcesso(aluno) {
+            const acesso = {
+                id: Date.now(),
+                codigo: aluno.codigo,
+                aluno: aluno.nome,
+                ra: aluno.ra,
+                dataHora: new Date().toLocaleString('pt-BR'),
+                ip: '192.168.1.' + Math.floor(Math.random() * 255)
+            };
+            acessos.push(acesso);
+            atualizarTabelaAcessos();
+            autoSalvar();
+        }
+
+        function showDashboard(type) {
+            document.getElementById('loginScreen').classList.add('hidden');
+            
+            if (type === 'admin') {
+                document.getElementById('adminDashboard').classList.remove('hidden');
+                atualizarDashboard();
+                // Aguardar um pouco para os elementos estarem renderizados
+                setTimeout(() => {
+                    initCharts();
+                }, 100);
+            } else {
+                document.getElementById('alunoDashboard').classList.remove('hidden');
+                carregarDashboardAluno();
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            selectedUserType = '';
+            
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('alunoDashboard').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            
+            document.querySelectorAll('#alunoBtn, #adminBtn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'border-purple-500', 'bg-purple-50');
+                btn.classList.add('border-gray-200');
+            });
+        }
+
+        // Funções de Navegação
+        function showSection(sectionName) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            document.getElementById(sectionName + 'Section').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active', 'bg-gray-700', 'text-blue-400');
+            });
+            
+            event.target.classList.add('active', 'bg-gray-700', 'text-blue-400');
+
+            // Carregar dados específicos da seção
+            if (sectionName === 'vendas') {
+                carregarOpcoesVenda();
+            } else if (sectionName === 'progressoAtividades') {
+                atualizarTabelaProgresso();
+            }
+            
+            // Adicionar efeito de entrada suave
+            const section = document.getElementById(sectionName + 'Section');
+            section.style.opacity = '0';
+            section.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                section.style.transition = 'all 0.3s ease-out';
+                section.style.opacity = '1';
+                section.style.transform = 'translateY(0)';
+            }, 50);
+        }
+
+        // Funções de Modal
+        function openEscolaModal(id = null) {
+            if (id) {
+                const escola = escolas.find(e => e.id === id);
+                document.getElementById('escolaModalTitle').textContent = 'Editar Escola';
+                document.getElementById('escolaId').value = escola.id;
+                document.getElementById('nomeEscola').value = escola.nome;
+                document.getElementById('cidadeEscola').value = escola.cidade;
+                document.getElementById('ufEscola').value = escola.uf;
+            } else {
+                document.getElementById('escolaModalTitle').textContent = 'Nova Escola';
+                document.getElementById('escolaId').value = '';
+            }
+            document.getElementById('escolaModal').classList.remove('hidden');
+        }
+
+        function openTurmaModal(id = null) {
+            carregarEscolasSelect();
+            if (id) {
+                const turma = turmas.find(t => t.id === id);
+                document.getElementById('turmaModalTitle').textContent = 'Editar Turma';
+                document.getElementById('turmaId').value = turma.id;
+                document.getElementById('escolaTurma').value = turma.escolaId;
+                document.getElementById('nomeTurma').value = turma.nome;
+            } else {
+                document.getElementById('turmaModalTitle').textContent = 'Nova Turma';
+                document.getElementById('turmaId').value = '';
+            }
+            document.getElementById('turmaModal').classList.remove('hidden');
+        }
+
+        function openAlunoModal(id = null) {
+            carregarEscolasSelectAluno();
+            if (id) {
+                const aluno = alunos.find(a => a.id === id);
+                document.getElementById('alunoModalTitle').textContent = 'Editar Aluno';
+                document.getElementById('alunoId').value = aluno.id;
+                document.getElementById('nomeAluno').value = aluno.nome;
+                document.getElementById('raAluno').value = aluno.ra;
+                document.getElementById('telefoneAluno').value = aluno.telefone;
+                document.getElementById('senhaAluno').value = aluno.senha;
+                document.getElementById('escolaAluno').value = aluno.escolaId;
+                carregarTurmasAluno();
+                setTimeout(() => {
+                    document.getElementById('turmaAluno').value = aluno.turmaId;
+                }, 100);
+            } else {
+                document.getElementById('alunoModalTitle').textContent = 'Novo Aluno';
+                document.getElementById('alunoId').value = '';
+            }
+            document.getElementById('alunoModal').classList.remove('hidden');
+        }
+
+        function openAtividadeModal(id = null) {
+            if (id) {
+                const atividade = atividades.find(a => a.id === id);
+                document.getElementById('atividadeModalTitle').textContent = 'Editar Atividade';
+                document.getElementById('atividadeId').value = atividade.id;
+                document.getElementById('nomeAtividade').value = atividade.nome;
+                document.getElementById('valorAtividade').value = atividade.valor;
+            } else {
+                document.getElementById('atividadeModalTitle').textContent = 'Nova Atividade';
+                document.getElementById('atividadeId').value = '';
+            }
+            document.getElementById('atividadeModal').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            // Limpar formulários
+            document.querySelectorAll(`#${modalId} form`).forEach(form => form.reset());
+        }
+
+        // Funções CRUD - Escolas
+        function salvarEscola(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('escolaId').value;
+            const escola = {
+                id: id ? parseInt(id) : Date.now(),
+                nome: document.getElementById('nomeEscola').value,
+                cidade: document.getElementById('cidadeEscola').value,
+                uf: document.getElementById('ufEscola').value.toUpperCase()
+            };
+            
+            if (id) {
+                const index = escolas.findIndex(e => e.id === parseInt(id));
+                escolas[index] = escola;
+            } else {
+                escolas.push(escola);
+            }
+            
+            atualizarTabelaEscolas();
+            atualizarDashboard();
+            updateCharts();
+            autoSalvar();
+            closeModal('escolaModal');
+        }
+
+        function atualizarTabelaEscolas() {
+            const tbody = document.getElementById('escolasTable');
+            tbody.innerHTML = '';
+            
+            escolas.forEach(escola => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3">${escola.nome}</td>
+                    <td class="py-3">${escola.cidade}</td>
+                    <td class="py-3">${escola.uf}</td>
+                    <td class="py-3">
+                        <button onclick="openEscolaModal(${escola.id})" class="text-blue-400 hover:text-blue-300 mr-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="excluirEscola(${escola.id})" class="text-red-400 hover:text-red-300">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function excluirEscola(id) {
+            if (confirm('Tem certeza que deseja excluir esta escola?')) {
+                escolas = escolas.filter(e => e.id !== id);
+                atualizarTabelaEscolas();
+                atualizarDashboard();
+                updateCharts();
+                autoSalvar();
+            }
+        }
+
+        // Funções CRUD - Turmas
+        function carregarEscolasSelect() {
+            const select = document.getElementById('escolaTurma');
+            select.innerHTML = '<option value="">Selecione uma escola</option>';
+            
+            escolas.forEach(escola => {
+                const option = document.createElement('option');
+                option.value = escola.id;
+                option.textContent = escola.nome;
+                select.appendChild(option);
+            });
+        }
+
+        function salvarTurma(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('turmaId').value;
+            const escolaId = parseInt(document.getElementById('escolaTurma').value);
+            const escola = escolas.find(e => e.id === escolaId);
+            
+            const turma = {
+                id: id ? parseInt(id) : Date.now(),
+                nome: document.getElementById('nomeTurma').value,
+                escolaId: escolaId,
+                escolaNome: escola.nome,
+                alunos: 0
+            };
+            
+            if (id) {
+                const index = turmas.findIndex(t => t.id === parseInt(id));
+                turmas[index] = turma;
+            } else {
+                turmas.push(turma);
+            }
+            
+            atualizarTabelaTurmas();
+            atualizarDashboard();
+            updateCharts();
+            autoSalvar();
+            closeModal('turmaModal');
+        }
+
+        function atualizarTabelaTurmas() {
+            const tbody = document.getElementById('turmasTable');
+            tbody.innerHTML = '';
+            
+            turmas.forEach(turma => {
+                const alunosCount = alunos.filter(a => a.turmaId === turma.id).length;
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3">${turma.nome}</td>
+                    <td class="py-3">${turma.escolaNome}</td>
+                    <td class="py-3">${alunosCount}</td>
+                    <td class="py-3">
+                        <button onclick="openTurmaModal(${turma.id})" class="text-blue-400 hover:text-blue-300 mr-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="excluirTurma(${turma.id})" class="text-red-400 hover:text-red-300">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function excluirTurma(id) {
+            if (confirm('Tem certeza que deseja excluir esta turma?')) {
+                turmas = turmas.filter(t => t.id !== id);
+                atualizarTabelaTurmas();
+                atualizarDashboard();
+                updateCharts();
+                autoSalvar();
+            }
+        }
+
+        // Funções CRUD - Alunos
+        function carregarEscolasSelectAluno() {
+            const select = document.getElementById('escolaAluno');
+            select.innerHTML = '<option value="">Selecione uma escola</option>';
+            
+            escolas.forEach(escola => {
+                const option = document.createElement('option');
+                option.value = escola.id;
+                option.textContent = escola.nome;
+                select.appendChild(option);
+            });
+        }
+
+        function carregarTurmasAluno() {
+            const escolaId = parseInt(document.getElementById('escolaAluno').value);
+            const select = document.getElementById('turmaAluno');
+            select.innerHTML = '<option value="">Selecione uma turma</option>';
+            
+            const turmasEscola = turmas.filter(t => t.escolaId === escolaId);
+            turmasEscola.forEach(turma => {
+                const option = document.createElement('option');
+                option.value = turma.id;
+                option.textContent = turma.nome;
+                select.appendChild(option);
+            });
+        }
+
+        function salvarAluno(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('alunoId').value;
+            const ra = document.getElementById('raAluno').value;
+            
+            // Verificar se RA já existe (exceto para o próprio aluno em edição)
+            const alunoExistente = alunos.find(a => a.ra === ra && a.id !== (id ? parseInt(id) : null));
+            if (alunoExistente) {
+                alert('Este RA já está cadastrado!');
+                return;
+            }
+            
+            const turmaId = parseInt(document.getElementById('turmaAluno').value);
+            const turma = turmas.find(t => t.id === turmaId);
+            const escola = escolas.find(e => e.id === turma.escolaId);
+            
+            const aluno = {
+                id: id ? parseInt(id) : Date.now(),
+                codigo: id ? alunos.find(a => a.id === parseInt(id)).codigo : proximoCodigo.toString().padStart(3, '0'),
+                nome: document.getElementById('nomeAluno').value,
+                ra: ra,
+                telefone: document.getElementById('telefoneAluno').value,
+                senha: document.getElementById('senhaAluno').value,
+                turmaId: turmaId,
+                turmaNome: turma.nome,
+                escolaId: turma.escolaId,
+                escolaNome: escola.nome
+            };
+            
+            if (id) {
+                const index = alunos.findIndex(a => a.id === parseInt(id));
+                alunos[index] = aluno;
+            } else {
+                alunos.push(aluno);
+                proximoCodigo++;
+            }
+            
+            atualizarTabelaAlunos();
+            atualizarDashboard();
+            updateCharts();
+            autoSalvar();
+            closeModal('alunoModal');
+        }
+
+        function atualizarTabelaAlunos() {
+            const tbody = document.getElementById('alunosTable');
+            tbody.innerHTML = '';
+            
+            alunos.forEach(aluno => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3 font-mono font-bold text-blue-400">${aluno.codigo}</td>
+                    <td class="py-3">${aluno.nome}</td>
+                    <td class="py-3">${aluno.ra}</td>
+                    <td class="py-3">${aluno.telefone}</td>
+                    <td class="py-3">${aluno.escolaNome}</td>
+                    <td class="py-3">${aluno.turmaNome}</td>
+                    <td class="py-3">
+                        <button onclick="openAlunoModal(${aluno.id})" class="text-blue-400 hover:text-blue-300 mr-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="excluirAluno(${aluno.id})" class="text-red-400 hover:text-red-300">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function excluirAluno(id) {
+            if (confirm('Tem certeza que deseja excluir este aluno?')) {
+                alunos = alunos.filter(a => a.id !== id);
+                atualizarTabelaAlunos();
+                atualizarDashboard();
+                updateCharts();
+                autoSalvar();
+            }
+        }
+
+        // Funções CRUD - Atividades
+        function salvarAtividade(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('atividadeId').value;
+            const atividade = {
+                id: id ? parseInt(id) : Date.now(),
+                nome: document.getElementById('nomeAtividade').value,
+                valor: parseFloat(document.getElementById('valorAtividade').value)
+            };
+            
+            if (id) {
+                const index = atividades.findIndex(a => a.id === parseInt(id));
+                atividades[index] = atividade;
+            } else {
+                atividades.push(atividade);
+            }
+            
+            atualizarTabelaAtividades();
+            updateCharts();
+            autoSalvar();
+            closeModal('atividadeModal');
+        }
+
+        function atualizarTabelaAtividades() {
+            const tbody = document.getElementById('atividadesTable');
+            tbody.innerHTML = '';
+            
+            atividades.forEach(atividade => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3">${atividade.nome}</td>
+                    <td class="py-3 text-green-400 font-bold">R$ ${atividade.valor.toFixed(2)}</td>
+                    <td class="py-3">
+                        <button onclick="openAtividadeModal(${atividade.id})" class="text-blue-400 hover:text-blue-300 mr-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="excluirAtividade(${atividade.id})" class="text-red-400 hover:text-red-300">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function excluirAtividade(id) {
+            if (confirm('Tem certeza que deseja excluir esta atividade?')) {
+                atividades = atividades.filter(a => a.id !== id);
+                atualizarTabelaAtividades();
+                updateCharts();
+                autoSalvar();
+            }
+        }
+
+        // Funções de Vendas
+        let atividadesSelecionadas = [];
+
+        function carregarOpcoesVenda() {
+            // Limpar seleções anteriores
+            atividadesSelecionadas = [];
+            document.getElementById('listaAtividades').innerHTML = '';
+            document.getElementById('valorTotal').value = '';
+        }
+
+        function buscarAlunoPorCodigo() {
+            const codigo = document.getElementById('codigoAluno').value;
+            const aluno = alunos.find(a => a.codigo === codigo);
+            
+            if (aluno) {
+                document.getElementById('alunoSelecionado').value = aluno.nome;
+                document.getElementById('alunoEscola').textContent = aluno.escolaNome;
+                document.getElementById('alunoTurma').textContent = aluno.turmaNome;
+                document.getElementById('alunoTelefone').textContent = aluno.telefone;
+                document.getElementById('dadosAluno').classList.remove('hidden');
+                document.getElementById('atividadesVenda').classList.remove('hidden');
+                document.getElementById('dadosVenda').classList.remove('hidden');
+                document.getElementById('observacoesVenda').classList.remove('hidden');
+                document.getElementById('btnCriarVenda').disabled = false;
+            } else {
+                document.getElementById('alunoSelecionado').value = '';
+                document.getElementById('dadosAluno').classList.add('hidden');
+                document.getElementById('atividadesVenda').classList.add('hidden');
+                document.getElementById('dadosVenda').classList.add('hidden');
+                document.getElementById('observacoesVenda').classList.add('hidden');
+                document.getElementById('btnCriarVenda').disabled = true;
+                atividadesSelecionadas = [];
+            }
+        }
+
+        function adicionarAtividade() {
+            if (atividades.length === 0) {
+                alert('Nenhuma atividade cadastrada!');
+                return;
+            }
+
+            const container = document.getElementById('listaAtividades');
+            const atividadeId = Date.now();
+            
+            const div = document.createElement('div');
+            div.className = 'bg-gray-50 p-4 rounded-lg border';
+            div.id = `atividade-${atividadeId}`;
+            
+            div.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Atividade</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg" onchange="atualizarValorAtividade(${atividadeId})" required>
+                                <option value="">Selecione uma atividade</option>
+                                ${atividades.map(atividade => 
+                                    `<option value="${atividade.id}" data-valor="${atividade.valor}">${atividade.nome} - R$ ${atividade.valor.toFixed(2)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+                            <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg" min="1" value="1" onchange="calcularTotalAtividades()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subtotal</label>
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" readonly value="R$ 0,00">
+                        </div>
+                    </div>
+                    <button type="button" onclick="removerAtividade(${atividadeId})" class="ml-4 text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash text-lg"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(div);
+            atividadesSelecionadas.push({ id: atividadeId, atividadeId: null, quantidade: 1, valor: 0 });
+        }
+
+        function atualizarValorAtividade(id) {
+            const div = document.getElementById(`atividade-${id}`);
+            const select = div.querySelector('select');
+            const quantidadeInput = div.querySelector('input[type="number"]');
+            const subtotalInput = div.querySelector('input[type="text"]');
+            
+            const atividadeId = parseInt(select.value);
+            const quantidade = parseInt(quantidadeInput.value) || 1;
+            
+            if (atividadeId) {
+                const atividade = atividades.find(a => a.id === atividadeId);
+                const subtotal = atividade.valor * quantidade;
+                subtotalInput.value = `R$ ${subtotal.toFixed(2)}`;
+                
+                // Atualizar array
+                const index = atividadesSelecionadas.findIndex(a => a.id === id);
+                if (index !== -1) {
+                    atividadesSelecionadas[index].atividadeId = atividadeId;
+                    atividadesSelecionadas[index].quantidade = quantidade;
+                    atividadesSelecionadas[index].valor = subtotal;
+                }
+            } else {
+                subtotalInput.value = 'R$ 0,00';
+            }
+            
+            calcularTotalAtividades();
+        }
+
+        function removerAtividade(id) {
+            document.getElementById(`atividade-${id}`).remove();
+            atividadesSelecionadas = atividadesSelecionadas.filter(a => a.id !== id);
+            calcularTotalAtividades();
+        }
+
+        function calcularTotalAtividades() {
+            // Recalcular todos os subtotais
+            atividadesSelecionadas.forEach(item => {
+                const div = document.getElementById(`atividade-${item.id}`);
+                if (div) {
+                    const select = div.querySelector('select');
+                    const quantidadeInput = div.querySelector('input[type="number"]');
+                    const subtotalInput = div.querySelector('input[type="text"]');
+                    
+                    const atividadeId = parseInt(select.value);
+                    const quantidade = parseInt(quantidadeInput.value) || 1;
+                    
+                    if (atividadeId) {
+                        const atividade = atividades.find(a => a.id === atividadeId);
+                        const subtotal = atividade.valor * quantidade;
+                        subtotalInput.value = `R$ ${subtotal.toFixed(2)}`;
+                        item.valor = subtotal;
+                        item.quantidade = quantidade;
+                    }
+                }
+            });
+            
+            const total = atividadesSelecionadas.reduce((sum, item) => sum + (item.valor || 0), 0);
+            document.getElementById('valorTotal').value = total.toFixed(2);
+        }
+
+        function validarValorTotal() {
+            const valorTotal = parseFloat(document.getElementById('valorTotal').value) || 0;
+            if (valorTotal < 0) {
+                document.getElementById('valorTotal').value = '0.00';
+            }
+        }
+
+        function criarVenda(event) {
+            event.preventDefault();
+            
+            const codigo = document.getElementById('codigoAluno').value;
+            const aluno = alunos.find(a => a.codigo === codigo);
+            
+            if (!aluno) {
+                alert('Aluno não encontrado! Verifique o código.');
+                return;
+            }
+            
+            if (atividadesSelecionadas.length === 0) {
+                alert('Adicione pelo menos uma atividade à venda!');
+                return;
+            }
+            
+            // Validar se todas as atividades foram selecionadas
+            const atividadesValidas = atividadesSelecionadas.filter(item => item.atividadeId && item.quantidade > 0);
+            if (atividadesValidas.length === 0) {
+                alert('Selecione pelo menos uma atividade válida!');
+                return;
+            }
+            
+            const valorTotal = parseFloat(document.getElementById('valorTotal').value) || 0;
+            if (valorTotal <= 0) {
+                alert('O valor total deve ser maior que zero!');
+                return;
+            }
+            
+            const formaPagamento = document.getElementById('formaPagamento').value;
+            const dataPagamento = document.getElementById('dataPagamento').value;
+            
+            if (!formaPagamento) {
+                alert('Selecione a forma de pagamento!');
+                return;
+            }
+            
+            if (!dataPagamento) {
+                alert('Informe a data provável de pagamento!');
+                return;
+            }
+            
+            // Criar descrição das atividades
+            const descricaoAtividades = atividadesValidas.map(item => {
+                const atividade = atividades.find(a => a.id === item.atividadeId);
+                return `${atividade.nome} (${item.quantidade}x)`;
+            }).join(', ');
+            
+            const venda = {
+                id: Date.now(),
+                alunoId: aluno.id,
+                alunoNome: aluno.nome,
+                alunoTelefone: aluno.telefone,
+                atividades: atividadesValidas.map(item => ({
+                    atividadeId: item.atividadeId,
+                    atividadeNome: atividades.find(a => a.id === item.atividadeId).nome,
+                    quantidade: item.quantidade,
+                    valorUnitario: atividades.find(a => a.id === item.atividadeId).valor,
+                    subtotal: item.valor
+                })),
+                atividadeNome: descricaoAtividades, // Para compatibilidade com código existente
+                valor: valorTotal,
+                formaPagamento: document.getElementById('formaPagamento').value,
+                dataPagamento: document.getElementById('dataPagamento').value,
+                observacoes: document.getElementById('observacoes').value,
+                status: 'Em Progresso',
+                data: new Date().toLocaleDateString('pt-BR')
+            };
+            
+            vendas.push(venda);
+            atualizarTabelaGestaoVendas();
+            atualizarDashboard();
+            updateCharts();
+            autoSalvar();
+            
+            // Limpar formulário
+            document.querySelector('#vendasSection form').reset();
+            document.getElementById('dadosAluno').classList.add('hidden');
+            document.getElementById('atividadesVenda').classList.add('hidden');
+            document.getElementById('dadosVenda').classList.add('hidden');
+            document.getElementById('observacoesVenda').classList.add('hidden');
+            document.getElementById('listaAtividades').innerHTML = '';
+            document.getElementById('btnCriarVenda').disabled = true;
+            atividadesSelecionadas = [];
+            
+            alert('Venda criada com sucesso!');
+        }
+
+        function atualizarTabelaGestaoVendas() {
+            const tbody = document.getElementById('gestaoVendasTable');
+            tbody.innerHTML = '';
+            
+            vendas.forEach(venda => {
+                const aluno = alunos.find(a => a.id === venda.alunoId);
+                const codigo = aluno ? aluno.codigo : '---';
+                
+                // Criar lista de atividades com barras de progresso
+                let atividadesHtml = '';
+                if (venda.atividades && venda.atividades.length > 0) {
+                    atividadesHtml = venda.atividades.map((ativ, index) => {
+                        const progressoKey = `${venda.id}_${index}`;
+                        const progresso = progressoAtividades[progressoKey] || 0;
+                        return `
+                            <div class="mb-2">
+                                <div class="text-sm font-medium">${ativ.atividadeNome} (${ativ.quantidade}x)</div>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <div class="flex-1 bg-gray-700 rounded-full h-2 relative overflow-hidden">
+                                        <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-full rounded-full transition-all duration-500" 
+                                             style="width: ${progresso}%"></div>
+                                    </div>
+                                    <span class="text-xs font-bold w-10">${progresso}%</span>
+                                    <input type="range" min="0" max="100" value="${progresso}" 
+                                           class="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                                           onchange="atualizarProgressoVenda('${progressoKey}', this.value, ${venda.id})">
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    // Para vendas antigas com uma atividade
+                    const progressoKey = `${venda.id}_0`;
+                    const progresso = progressoAtividades[progressoKey] || 0;
+                    atividadesHtml = `
+                        <div class="mb-2">
+                            <div class="text-sm font-medium">${venda.atividadeNome}</div>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <div class="flex-1 bg-gray-700 rounded-full h-2 relative overflow-hidden">
+                                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-full rounded-full transition-all duration-500" 
+                                         style="width: ${progresso}%"></div>
+                                </div>
+                                <span class="text-xs font-bold w-10">${progresso}%</span>
+                                <input type="range" min="0" max="100" value="${progresso}" 
+                                       class="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                                       onchange="atualizarProgressoVenda('${progressoKey}', this.value, ${venda.id})">
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const row = document.createElement('tr');
+                const statusClass = venda.status === 'Concluída' ? 'bg-green-600' : 
+                                   venda.status === 'Em Progresso' ? 'bg-yellow-600' : 
+                                   'bg-red-600';
+                
+                row.className = 'border-b border-gray-700 hover:bg-gray-800 transition-colors';
+                row.innerHTML = `
+                    <td class="py-4 font-mono font-bold text-blue-400">${codigo}</td>
+                    <td class="py-4">${venda.alunoNome}</td>
+                    <td class="py-4 min-w-64">
+                        ${atividadesHtml}
+                    </td>
+                    <td class="py-4 text-green-400 font-bold">R$ ${venda.valor.toFixed(2)}</td>
+                    <td class="py-4">${venda.formaPagamento}</td>
+                    <td class="py-4">${new Date(venda.dataPagamento).toLocaleDateString('pt-BR')}</td>
+                    <td class="py-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="flex-1 bg-gray-700 rounded-full h-3 relative overflow-hidden">
+                                <div class="bg-gradient-to-r from-green-500 to-emerald-600 h-full rounded-full transition-all duration-500" 
+                                     style="width: ${calcularProgressoGeral(venda)}%"></div>
+                            </div>
+                            <span class="text-sm font-bold text-white w-12">${calcularProgressoGeral(venda)}%</span>
+                        </div>
+                    </td>
+                    <td class="py-4">
+                        <span class="px-3 py-1 rounded-full text-xs text-white ${statusClass}">${venda.status}</span>
+                    </td>
+                    <td class="py-4">
+                        <select onchange="alterarStatusVenda(${venda.id}, this.value)" class="text-sm border rounded px-2 py-1 bg-gray-700 text-white border-gray-600 mr-2">
+                            <option value="Em Progresso" ${venda.status === 'Em Progresso' ? 'selected' : ''}>Em Progresso</option>
+                            <option value="Concluída" ${venda.status === 'Concluída' ? 'selected' : ''}>Concluída</option>
+                            <option value="Cancelada" ${venda.status === 'Cancelada' ? 'selected' : ''}>Cancelada</option>
+                        </select>
+                        <button onclick="verDetalhesVenda(${venda.id})" class="text-blue-400 hover:text-blue-300 mr-2">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="excluirVenda(${venda.id})" class="text-red-400 hover:text-red-300">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function alterarStatusVenda(id, novoStatus) {
+            const venda = vendas.find(v => v.id === id);
+            if (venda) {
+                venda.status = novoStatus;
+                atualizarTabelaGestaoVendas();
+                updateCharts();
+                autoSalvar();
+            }
+        }
+
+        function verDetalhesVenda(id) {
+            const venda = vendas.find(v => v.id === id);
+            const aluno = alunos.find(a => a.id === venda.alunoId);
+            
+            let atividadesHtml = '';
+            if (venda.atividades && venda.atividades.length > 0) {
+                atividadesHtml = `
+                    <div class="mt-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Atividades</h4>
+                        <div class="bg-gray-50 p-3 rounded">
+                            ${venda.atividades.map(ativ => `
+                                <div class="flex justify-between items-center py-1">
+                                    <span>${ativ.atividadeNome} (${ativ.quantidade}x)</span>
+                                    <span class="font-bold">R$ ${ativ.subtotal.toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                            <hr class="my-2">
+                            <div class="flex justify-between items-center font-bold text-lg">
+                                <span>Total:</span>
+                                <span>R$ ${venda.valor.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                atividadesHtml = `
+                    <div class="mt-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Atividade</h4>
+                        <p class="bg-gray-50 p-3 rounded">${venda.atividadeNome} - R$ ${venda.valor.toFixed(2)}</p>
+                    </div>
+                `;
+            }
+            
+            const content = document.getElementById('detalhesVendaContent');
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Dados do Aluno</h4>
+                        <p><strong>Código:</strong> ${aluno.codigo}</p>
+                        <p><strong>Nome:</strong> ${venda.alunoNome}</p>
+                        <p><strong>Telefone:</strong> ${venda.alunoTelefone}</p>
+                        <p><strong>Escola:</strong> ${aluno.escolaNome}</p>
+                        <p><strong>Turma:</strong> ${aluno.turmaNome}</p>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Dados da Venda</h4>
+                        <p><strong>Data:</strong> ${venda.data}</p>
+                        <p><strong>Pagamento:</strong> ${venda.formaPagamento}</p>
+                        <p><strong>Data Pagamento:</strong> ${new Date(venda.dataPagamento).toLocaleDateString('pt-BR')}</p>
+                        <p><strong>Status:</strong> ${venda.status}</p>
+                    </div>
+                </div>
+                ${atividadesHtml}
+                ${venda.observacoes ? `
+                    <div class="mt-4">
+                        <h4 class="font-semibold text-gray-700 mb-2">Observações</h4>
+                        <p class="bg-gray-50 p-3 rounded">${venda.observacoes}</p>
+                    </div>
+                ` : ''}
+            `;
+            
+            document.getElementById('detalhesVendaModal').classList.remove('hidden');
+        }
+
+        function excluirVenda(id) {
+            if (confirm('Tem certeza que deseja excluir esta venda?')) {
+                vendas = vendas.filter(v => v.id !== id);
+                atualizarTabelaGestaoVendas();
+                atualizarDashboard();
+                updateCharts();
+                autoSalvar();
+            }
+        }
+
+        // Funções de Progresso das Atividades
+        function atualizarTabelaProgresso() {
+            const tbody = document.getElementById('progressoTable');
+            tbody.innerHTML = '';
+            
+            vendas.forEach(venda => {
+                if (venda.status === 'Em Progresso') {
+                    const aluno = alunos.find(a => a.id === venda.alunoId);
+                    const progressoKey = `${venda.id}`;
+                    const progresso = progressoAtividades[progressoKey] || 0;
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                    
+                    row.innerHTML = `
+                        <td class="py-4">${venda.alunoNome}</td>
+                        <td class="py-4">${venda.atividadeNome}</td>
+                        <td class="py-4">
+                            <span class="px-3 py-1 rounded-full text-xs text-white bg-yellow-600">Em Progresso</span>
+                        </td>
+                        <td class="py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex-1 bg-gray-700 rounded-full h-3 relative overflow-hidden">
+                                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-full rounded-full transition-all duration-500" 
+                                         style="width: ${progresso}%"></div>
+                                </div>
+                                <span class="text-sm font-bold text-white w-12">${progresso}%</span>
+                            </div>
+                        </td>
+                        <td class="py-4">
+                            <div class="flex items-center space-x-2">
+                                <input type="range" min="0" max="100" value="${progresso}" 
+                                       class="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                                       onchange="atualizarProgresso('${progressoKey}', this.value)">
+                                <button onclick="concluirAtividade('${venda.id}')" 
+                                        class="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 transition-colors">
+                                    Concluir
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            });
+            
+            if (tbody.children.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhuma atividade em progresso</td></tr>';
+            }
+        }
+
+        function atualizarProgresso(vendaKey, novoProgresso) {
+            progressoAtividades[vendaKey] = parseInt(novoProgresso);
+            atualizarTabelaProgresso();
+            autoSalvar();
+            
+            if (novoProgresso == 100) {
+                showNotification('Atividade 100% concluída! 🎉', 'success');
+            } else if (novoProgresso >= 75) {
+                showNotification('Ótimo progresso! Quase lá! 💪', 'info');
+            } else if (novoProgresso >= 50) {
+                showNotification('Progresso atualizado! Continue assim! 👍', 'info');
+            }
+        }
+
+        function concluirAtividade(vendaId) {
+            const venda = vendas.find(v => v.id == vendaId);
+            if (venda && confirm(`Confirma a conclusão da atividade "${venda.atividadeNome}" para ${venda.alunoNome}?`)) {
+                venda.status = 'Concluída';
+                progressoAtividades[vendaId] = 100;
+                
+                atualizarTabelaProgresso();
+                atualizarTabelaGestaoVendas();
+                atualizarDashboard();
+                updateCharts();
+                autoSalvar();
+                
+                showNotification(`Atividade concluída com sucesso! 🎉`, 'success');
+            }
+        }
+
+        // Funções de Controle de Acessos
+        function atualizarTabelaAcessos() {
+            const tbody = document.getElementById('acessosTable');
+            tbody.innerHTML = '';
+            
+            acessos.forEach(acesso => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3 font-mono font-bold text-blue-400">${acesso.codigo}</td>
+                    <td class="py-3">${acesso.aluno}</td>
+                    <td class="py-3">${acesso.ra}</td>
+                    <td class="py-3">${acesso.dataHora}</td>
+                    <td class="py-3 text-gray-400">${acesso.ip}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Dashboard do Aluno
+        function carregarDashboardAluno() {
+            const aluno = currentUser;
+            document.getElementById('alunoNome').textContent = `Bem-vindo, ${aluno.nome}!`;
+            document.getElementById('alunoInfo').textContent = `${aluno.escolaNome} - ${aluno.turmaNome}`;
+            document.getElementById('alunoDetalhes').textContent = `Código: ${aluno.codigo} | Telefone: ${aluno.telefone}`;
+            
+            const atividadesAluno = vendas.filter(v => v.alunoId === aluno.id);
+            const atividadesProgresso = atividadesAluno.filter(v => v.status === 'Em Progresso');
+            const atividadesConcluidas = atividadesAluno.filter(v => v.status === 'Concluída');
+            const totalInvestido = atividadesAluno.reduce((total, v) => total + v.valor, 0);
+            
+            // Atualizar estatísticas
+            document.getElementById('alunoAtividadesAtivas').textContent = atividadesProgresso.length;
+            document.getElementById('alunoAtividadesConcluidas').textContent = atividadesConcluidas.length;
+            document.getElementById('alunoTotalInvestido').textContent = `R$ ${totalInvestido.toFixed(2)}`;
+            
+            // Atividades em progresso
+            const containerProgresso = document.getElementById('atividadesAluno');
+            containerProgresso.innerHTML = '';
+            
+            if (atividadesProgresso.length === 0) {
+                containerProgresso.innerHTML = '<p class="text-gray-400 text-center py-8">Nenhuma atividade em progresso</p>';
+            } else {
+                atividadesProgresso.forEach(atividade => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-gradient-to-r from-yellow-600 to-orange-600 p-4 rounded-lg border-l-4 border-yellow-400';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold text-white text-lg">${atividade.atividadeNome}</p>
+                                <p class="text-yellow-100">Valor: R$ ${atividade.valor.toFixed(2)}</p>
+                                <p class="text-yellow-100">Pagamento: ${atividade.formaPagamento}</p>
+                                <p class="text-yellow-100">Vencimento: ${new Date(atividade.dataPagamento).toLocaleDateString('pt-BR')}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                                    ${atividade.status}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    containerProgresso.appendChild(div);
+                });
+            }
+            
+            // Atividades concluídas
+            const containerConcluidas = document.getElementById('atividadesConcluidas');
+            containerConcluidas.innerHTML = '';
+            
+            if (atividadesConcluidas.length === 0) {
+                containerConcluidas.innerHTML = '<p class="text-gray-400 text-center py-8">Nenhuma atividade concluída</p>';
+            } else {
+                atividadesConcluidas.forEach(atividade => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-gradient-to-r from-green-600 to-emerald-600 p-4 rounded-lg border-l-4 border-green-400';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold text-white text-lg">${atividade.atividadeNome}</p>
+                                <p class="text-green-100">Valor: R$ ${atividade.valor.toFixed(2)}</p>
+                                <p class="text-green-100">Concluída em: ${atividade.data}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                                    <i class="fas fa-check mr-1"></i>Concluída
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    containerConcluidas.appendChild(div);
+                });
+            }
+            
+            // Histórico completo
+            const historicoTable = document.getElementById('historicoAluno');
+            historicoTable.innerHTML = '';
+            
+            if (atividadesAluno.length === 0) {
+                historicoTable.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">Nenhuma atividade encontrada</td></tr>';
+            } else {
+                atividadesAluno.forEach(atividade => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-700 hover:bg-gray-700 transition-colors';
+                    
+                    const statusClass = atividade.status === 'Concluída' ? 'bg-green-600' : 
+                                       atividade.status === 'Em Progresso' ? 'bg-yellow-600' : 
+                                       'bg-red-600';
+                    
+                    row.innerHTML = `
+                        <td class="py-3">${atividade.atividadeNome}</td>
+                        <td class="py-3 text-green-400 font-bold">R$ ${atividade.valor.toFixed(2)}</td>
+                        <td class="py-3">${atividade.formaPagamento}</td>
+                        <td class="py-3">${new Date(atividade.dataPagamento).toLocaleDateString('pt-BR')}</td>
+                        <td class="py-3">
+                            <span class="px-3 py-1 rounded-full text-xs text-white ${statusClass}">${atividade.status}</span>
+                        </td>
+                        <td class="py-3 text-gray-300">${atividade.observacoes || '-'}</td>
+                    `;
+                    historicoTable.appendChild(row);
+                });
+            }
+        }
+
+        // Atualizar Dashboard
+        function atualizarDashboard() {
+            // Animação de contagem nos cards
+            countUp(document.getElementById('totalAlunos'), alunos.length);
+            countUp(document.getElementById('totalEscolas'), escolas.length);
+            countUp(document.getElementById('totalTurmas'), turmas.length);
+            countUp(document.getElementById('totalVendas'), vendas.filter(v => v.status === 'Em Progresso').length);
+            
+            // Atualizar gráficos
+            updateCharts();
+        }
+
+        // Gráficos
+        function initCharts() {
+            // Gráfico de Alunos por Escola
+            const alunosCtx = document.getElementById('alunosChart').getContext('2d');
+            window.alunosChart = new Chart(alunosCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de Turmas por Escola
+            const turmasCtx = document.getElementById('turmasChart').getContext('2d');
+            window.turmasChart = new Chart(turmasCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Turmas',
+                        data: [],
+                        backgroundColor: '#10B981'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de Status das Vendas
+            const vendasCtx = document.getElementById('vendasChart').getContext('2d');
+            window.vendasChart = new Chart(vendasCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Em Progresso', 'Concluída', 'Cancelada'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#F59E0B', '#10B981', '#EF4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de Atividades Mais Vendidas
+            const atividadesCtx = document.getElementById('atividadesChart').getContext('2d');
+            window.atividadesChart = new Chart(atividadesCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Vendas',
+                        data: [],
+                        backgroundColor: '#8B5CF6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            updateCharts();
+        }
+
+        function updateCharts() {
+            // Verificar se os gráficos existem antes de atualizar
+            if (!window.alunosChart || !window.turmasChart || !window.vendasChart || !window.atividadesChart) {
+                return;
+            }
+
+            try {
+                // Atualizar gráfico de alunos por escola
+                const alunosPorEscola = {};
+                escolas.forEach(escola => {
+                    alunosPorEscola[escola.nome] = alunos.filter(a => a.escolaId === escola.id).length;
+                });
+                
+                window.alunosChart.data.labels = Object.keys(alunosPorEscola);
+                window.alunosChart.data.datasets[0].data = Object.values(alunosPorEscola);
+                window.alunosChart.update();
+
+                // Atualizar gráfico de turmas por escola
+                const turmasPorEscola = {};
+                escolas.forEach(escola => {
+                    turmasPorEscola[escola.nome] = turmas.filter(t => t.escolaId === escola.id).length;
+                });
+                
+                window.turmasChart.data.labels = Object.keys(turmasPorEscola);
+                window.turmasChart.data.datasets[0].data = Object.values(turmasPorEscola);
+                window.turmasChart.update();
+
+                // Atualizar gráfico de status das vendas
+                const statusCount = {
+                    'Em Progresso': vendas.filter(v => v.status === 'Em Progresso').length,
+                    'Concluída': vendas.filter(v => v.status === 'Concluída').length,
+                    'Cancelada': vendas.filter(v => v.status === 'Cancelada').length
+                };
+                
+                window.vendasChart.data.datasets[0].data = [statusCount['Em Progresso'], statusCount['Concluída'], statusCount['Cancelada']];
+                window.vendasChart.update();
+
+                // Atualizar gráfico de atividades mais vendidas
+                const atividadesVendidas = {};
+                vendas.forEach(venda => {
+                    if (venda.atividades && venda.atividades.length > 0) {
+                        // Para vendas com múltiplas atividades
+                        venda.atividades.forEach(ativ => {
+                            atividadesVendidas[ativ.atividadeNome] = (atividadesVendidas[ativ.atividadeNome] || 0) + ativ.quantidade;
+                        });
+                    } else {
+                        // Para vendas antigas com uma atividade
+                        atividadesVendidas[venda.atividadeNome] = (atividadesVendidas[venda.atividadeNome] || 0) + 1;
+                    }
+                });
+                
+                const topAtividades = Object.entries(atividadesVendidas)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5);
+                
+                window.atividadesChart.data.labels = topAtividades.map(([nome]) => nome);
+                window.atividadesChart.data.datasets[0].data = topAtividades.map(([,count]) => count);
+                window.atividadesChart.update();
+            } catch (error) {
+                console.error('Erro ao atualizar gráficos:', error);
+            }
+        }
+
+        // Funções de Gestão de Admins
+        function openAdminModal(username = null) {
+            if (username) {
+                const admin = admins[username];
+                document.getElementById('adminModalTitle').textContent = 'Editar Administrador';
+                document.getElementById('adminId').value = username;
+                document.getElementById('nomeAdmin').value = admin.name;
+                document.getElementById('usernameAdmin').value = admin.username;
+                document.getElementById('usernameAdmin').disabled = true;
+                document.getElementById('senhaAdmin').value = admin.password;
+            } else {
+                document.getElementById('adminModalTitle').textContent = 'Novo Administrador';
+                document.getElementById('adminId').value = '';
+                document.getElementById('usernameAdmin').disabled = false;
+            }
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        function salvarAdmin(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('adminId').value;
+            const username = document.getElementById('usernameAdmin').value;
+            const name = document.getElementById('nomeAdmin').value;
+            const password = document.getElementById('senhaAdmin').value;
+            
+            // Verificar se username já existe (exceto para edição)
+            if (!id && admins[username]) {
+                alert('Este nome de usuário já existe!');
+                return;
+            }
+            
+            const admin = {
+                username: username,
+                password: password,
+                type: 'admin',
+                name: name,
+                isMainAdmin: false,
+                createdAt: id ? admins[username].createdAt : new Date().toISOString(),
+                createdBy: currentUser.username
+            };
+            
+            admins[username] = admin;
+            
+            atualizarListaAdmins();
+            autoSalvar();
+            closeModal('adminModal');
+            
+            alert(id ? 'Administrador atualizado com sucesso!' : 'Administrador criado com sucesso!');
+        }
+
+        function excluirAdmin(username) {
+            if (admins[username].isMainAdmin) {
+                alert('Não é possível excluir o administrador principal!');
+                return;
+            }
+            
+            if (confirm(`Tem certeza que deseja excluir o administrador ${admins[username].name}?`)) {
+                delete admins[username];
+                atualizarListaAdmins();
+                autoSalvar();
+            }
+        }
+
+        function atualizarListaAdmins() {
+            const container = document.getElementById('adminsList');
+            container.innerHTML = '';
+            
+            Object.values(admins).forEach(admin => {
+                const div = document.createElement('div');
+                div.className = 'bg-gray-700 p-4 rounded-lg border border-gray-600';
+                
+                const isMainAdmin = admin.isMainAdmin;
+                const badgeClass = isMainAdmin ? 'bg-purple-600' : 'bg-blue-600';
+                const badgeText = isMainAdmin ? 'Admin Principal' : 'Admin';
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-white">${admin.name}</h4>
+                            <p class="text-gray-300 text-sm">@${admin.username}</p>
+                            <p class="text-gray-400 text-xs">Criado em: ${new Date(admin.createdAt).toLocaleDateString('pt-BR')}</p>
+                            ${admin.createdBy ? `<p class="text-gray-400 text-xs">Por: ${admin.createdBy}</p>` : ''}
+                        </div>
+                        <div class="flex flex-col items-end space-y-2">
+                            <span class="px-2 py-1 rounded text-xs text-white ${badgeClass}">${badgeText}</span>
+                            ${!isMainAdmin ? `
+                                <div class="flex space-x-2">
+                                    <button onclick="openAdminModal('${admin.username}')" class="text-blue-400 hover:text-blue-300">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="excluirAdmin('${admin.username}')" class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function atualizarLogsAdmins() {
+            const container = document.getElementById('adminLogs');
+            container.innerHTML = '';
+            
+            const logsRecentes = adminLogs.slice(-20).reverse();
+            
+            if (logsRecentes.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center">Nenhum log de acesso</p>';
+                return;
+            }
+            
+            logsRecentes.forEach(log => {
+                const div = document.createElement('div');
+                div.className = 'bg-gray-700 p-3 rounded border border-gray-600';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-white font-medium">${log.name}</p>
+                            <p class="text-gray-300 text-sm">@${log.username}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-gray-300 text-sm">${log.timestamp}</p>
+                            <p class="text-gray-400 text-xs">${log.ip}</p>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Funções de progresso das vendas
+        function atualizarProgressoVenda(progressoKey, novoProgresso, vendaId) {
+            progressoAtividades[progressoKey] = parseInt(novoProgresso);
+            
+            // Verificar se todas as atividades da venda estão 100%
+            const venda = vendas.find(v => v.id == vendaId);
+            if (venda) {
+                const progressoGeral = calcularProgressoGeral(venda);
+                if (progressoGeral === 100 && venda.status === 'Em Progresso') {
+                    venda.status = 'Concluída';
+                    showNotification(`Venda de ${venda.alunoNome} concluída automaticamente! 🎉`, 'success');
+                }
+            }
+            
+            atualizarTabelaGestaoVendas();
+            autoSalvar();
+            
+            if (novoProgresso == 100) {
+                showNotification('Atividade 100% concluída! 🎉', 'success');
+            } else if (novoProgresso >= 75) {
+                showNotification('Ótimo progresso! Quase lá! 💪', 'info');
+            }
+        }
+
+        function calcularProgressoGeral(venda) {
+            let totalProgresso = 0;
+            let totalAtividades = 0;
+            
+            if (venda.atividades && venda.atividades.length > 0) {
+                venda.atividades.forEach((ativ, index) => {
+                    const progressoKey = `${venda.id}_${index}`;
+                    totalProgresso += progressoAtividades[progressoKey] || 0;
+                    totalAtividades++;
+                });
+            } else {
+                // Para vendas antigas
+                const progressoKey = `${venda.id}_0`;
+                totalProgresso = progressoAtividades[progressoKey] || 0;
+                totalAtividades = 1;
+            }
+            
+            return totalAtividades > 0 ? Math.round(totalProgresso / totalAtividades) : 0;
+        }
+
+        // Sistema de alternância de tema
+        let isDarkTheme = true;
+
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            const body = document.body;
+            const adminDashboard = document.getElementById('adminDashboard');
+            const toggleButton = document.getElementById('themeToggleButton');
+            const toggle = document.getElementById('themeToggle');
+            
+            if (isDarkTheme) {
+                // Tema Dark
+                body.className = 'bg-gray-900 font-sans';
+                adminDashboard.className = 'hidden min-h-screen bg-gray-900';
+                toggleButton.classList.add('translate-x-6');
+                toggleButton.classList.remove('translate-x-1');
+                toggle.classList.add('bg-blue-600');
+                toggle.classList.remove('bg-gray-300');
+                
+                // Aplicar classes dark em todas as seções
+                applyDarkTheme();
+                
+                showNotification('Tema dark ativado! 🌙', 'info');
+            } else {
+                // Tema Light
+                body.className = 'bg-gray-100 font-sans';
+                adminDashboard.className = 'hidden min-h-screen bg-gray-100';
+                toggleButton.classList.remove('translate-x-6');
+                toggleButton.classList.add('translate-x-1');
+                toggle.classList.remove('bg-blue-600');
+                toggle.classList.add('bg-gray-300');
+                
+                // Aplicar classes light em todas as seções
+                applyLightTheme();
+                
+                showNotification('Tema claro ativado! ☀️', 'info');
+            }
+            
+            // Salvar preferência
+            localStorage.setItem('themePreference', isDarkTheme ? 'dark' : 'light');
+        }
+
+        function applyDarkTheme() {
+            // Aplicar tema dark em todos os elementos
+            document.querySelectorAll('.bg-white').forEach(el => {
+                el.classList.remove('bg-white');
+                el.classList.add('bg-gray-800');
+            });
+            
+            document.querySelectorAll('.text-gray-800').forEach(el => {
+                el.classList.remove('text-gray-800');
+                el.classList.add('text-white');
+            });
+            
+            document.querySelectorAll('.border-gray-300').forEach(el => {
+                el.classList.remove('border-gray-300');
+                el.classList.add('border-gray-600');
+            });
+        }
+
+        function applyLightTheme() {
+            // Aplicar tema light em todos os elementos
+            document.querySelectorAll('.bg-gray-800').forEach(el => {
+                if (!el.classList.contains('sidebar')) {
+                    el.classList.remove('bg-gray-800');
+                    el.classList.add('bg-white');
+                }
+            });
+            
+            document.querySelectorAll('.text-white').forEach(el => {
+                if (!el.closest('.sidebar')) {
+                    el.classList.remove('text-white');
+                    el.classList.add('text-gray-800');
+                }
+            });
+            
+            document.querySelectorAll('.border-gray-600').forEach(el => {
+                el.classList.remove('border-gray-600');
+                el.classList.add('border-gray-300');
+            });
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Inicializar admin principal
+            initializeMainAdmin();
+            
+            // Configurar status inicial
+            updateSyncStatus('offline', 'Inicializando...');
+            
+            // Tentar inicializar Firebase automaticamente
+            setTimeout(() => {
+                if (syncEnabled) {
+                    initializeFirebase();
+                } else {
+                    // Carregar dados locais se sync estiver desabilitado
+                    carregarDados();
+                }
+            }, 1000);
+            
+            // Carregar preferência de tema
+            const savedTheme = localStorage.getItem('themePreference');
+            if (savedTheme === 'light') {
+                toggleTheme();
+            }
+            
+            selectUserType('aluno');
+            
+            // Atualizar interface inicial
+            atualizarTodasTabelas();
+            atualizarDashboard();
+            
+            // Mostrar instruções de configuração do Firebase
+            setTimeout(() => {
+                if (!isFirebaseReady && syncEnabled) {
+                    showNotification('Configure o Firebase para sincronização em tempo real! 🔧', 'info');
+                }
+            }, 3000);
+        });
+    </script>
+
+    <style>
+        .nav-item.active {
+            background-color: #374151;
+            color: #60a5fa;
+        }
+        
+        /* Estilo para gráficos em tema dark */
+        canvas {
+            background-color: transparent !important;
+        }
+        
+        /* Scrollbar personalizada para tema dark */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #374151;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #6b7280;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'976d2053d32df1e1',t:'MTc1NjQ4MTgxMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
